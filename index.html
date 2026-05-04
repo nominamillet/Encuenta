@@ -93,12 +93,20 @@ select.add(opt);
 } catch(e) { console.error("Error", e); }
 };
 function setupCam() {
-const video = document.getElementById('video');
-navigator.mediaDevices.getUserMedia({ video: true
-
-}).then(s => video.srcObject = s);
-
+    const video = document.getElementById('video');
+    navigator.mediaDevices.getUserMedia({ 
+        video: { width: 400, height: 400 } // Tamaño moderado para no saturar el envío
+    })
+    .then(s => {
+        video.srcObject = s;
+        video.play(); // Forzar el inicio
+    })
+    .catch(err => {
+        console.error("No se pudo acceder a la cámara", err);
+        alert("Error de cámara: " + err.name);
+    });
 }
+
 function autoFillNum() {
 const nameSelected =
 
