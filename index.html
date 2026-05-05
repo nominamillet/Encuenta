@@ -92,18 +92,26 @@
             btn.disabled = true;
             msg.innerText = "Procesando...";
 
+            // ... dentro de la función enviar() ...
             const canvas = document.getElementById('canvas');
             const video = document.getElementById('video');
-            canvas.width = 400; canvas.height = 400;
-            canvas.getContext('2d').drawImage(video, 0, 0, 400, 400);
-            
-            const payload = {
-                numero: num,
-                nombre: nomSelect.options[nomSelect.selectedIndex].text || "Manual",
-                alergias: document.getElementById('alergias').value,
-                sangre: document.getElementById('sangre').value,
-                foto: canvas.toDataURL('image/jpeg', 0.7).split(',')[1]
-            };
+
+           // Reducimos el tamaño para asegurar que Google lo acepte rápido
+           canvas.width = 320; 
+           canvas.height = 240;
+           canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
+
+          // Extraemos el base64 PURO (sin el encabezado data:image/jpeg...)
+           const fotoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+           const payload = {
+           numero: document.getElementById('numero').value,
+           nombre: document.getElementById('nombre').options[document.getElementById('nombre').selectedIndex].text,
+           alergias: document.getElementById('alergias').value,
+           sangre: document.getElementById('sangre').value,
+           foto: fotoBase64 // Aquí enviamos solo el texto de la imagen
+          };
+        // ... resto del fetch ...
+
 
             try {
                 const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
