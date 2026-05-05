@@ -9,7 +9,7 @@
         .card { background: #1a6d8d; width: 350px; padding: 30px 20px; border-radius: 25px; color: white; text-align: center; box-shadow: 0 8px 15px rgba(0,0,0,0.3); }
         .field-group { display: flex; align-items: center; margin-bottom: 15px; justify-content: space-between; }
         label { font-weight: bold; font-size: 0.85rem; width: 35%; text-align: left; }
-        input, select { width: 60%; padding: 8px; border-radius: 6px; border: none; outline: none; }
+        input { width: 60%; padding: 8px; border-radius: 6px; border: none; outline: none; box-sizing: border-box; }
         #camera-box { background: #000; width: 240px; height: 240px; margin: 20px auto; border-radius: 15px; border: 3px solid #fff; overflow: hidden; }
         video { width: 100%; height: 100%; object-fit: cover; }
         .btn-capture { background: #00d1b2; color: white; border: none; padding: 12px 25px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1rem; }
@@ -20,16 +20,18 @@
 <body>
     <div class="card">
         <h3>REGISTRO DE PERSONAL</h3>
-        <div class="field-group">
-            <label>NÚMERO:</label>
-            <input type="text" id="numero" placeholder="Escribe o busca..." oninput="buscarPorNumero()">
-        </div>
+        
         <div class="field-group">
             <label>NOMBRE:</label>
-            <select id="nombre" onchange="autoFillFromSelect()">
-                <option value="">Cargando empleados...</option>
-            </select>
+            <input type="text" id="nombreInput" list="listaEmpleados" placeholder="Escribe para buscar..." oninput="autoFillDesdeNombre()">
+            <datalist id="listaEmpleados"></datalist>
         </div>
+
+        <div class="field-group">
+            <label>NÚMERO:</label>
+            <input type="text" id="numero" readonly style="background-color: #e9ecef; color: #495057;">
+        </div>
+
         <div class="field-group"><label>ALERGIAS:</label><input type="text" id="alergias"></div>
         <div class="field-group"><label>SANGRE:</label><input type="text" id="sangre"></div>
 
@@ -53,13 +55,12 @@
             try {
                 const res = await fetch(API_URL);
                 dbEmpleados = await res.json();
-                const select = document.getElementById('nombre');
-                select.innerHTML = '<option value="">-- Seleccionar --</option>';
+                const datalist = document.getElementById('listaEmpleados');
+                datalist.innerHTML = ''; 
                 dbEmpleados.forEach(e => {
                     let opt = document.createElement('option');
-                    opt.value = e.numero;
-                    opt.text = e.nombre;
-                    select.add(opt);
+                    opt.value = e.nombre; // El valor que se muestra al buscar
+                    datalist.appendChild(opt);
                 });
             } catch(e) { document.getElementById('msg').innerText = "Error cargando lista."; }
         }
@@ -70,48 +71,44 @@
             .catch(e => { alert("Error cámara: " + e); });
         }
 
-        function autoFillFromSelect() {
-            const select = document.getElementById('nombre');
-            document.getElementById('numero').value = select.value;
-        }
-
-        function buscarPorNumero() {
-            const num = document.getElementById('numero').value;
-            const emp = dbEmpleados.find(x => x.numero === num);
-            if (emp) document.getElementById('nombre').value = emp.numero;
+        function autoFillDesdeNombre() {
+            const nombreEscrito = document.getElementById('nombreInput').value;
+            // Buscamos coincidencia exacta para asignar el número
+            const emp = dbEmpleados.find(x => x.nombre === nombreEscrito);
+            if (emp) {
+                document.getElementById('numero').value = emp.numero;
+            } else {
+                document.getElementById('numero').value = "";
+            }
         }
 
         async function enviar() {
             const btn = document.getElementById('btnGuardar');
             const msg = document.getElementById('msg');
             const num = document.getElementById('numero').value;
-            const nomSelect = document.getElementById('nombre');
+            const nom = document.getElementById('nombreInput').value;
             
-            if(!num) return alert("Ingresa un número");
+            if(!num || !nom) return alert("Por favor seleccione un empleado válido de la lista");
             
             btn.disabled = true;
             msg.innerText = "Procesando...";
 
-            // ... dentro de la función enviar() ...
             const canvas = document.getElementById('canvas');
             const video = document.getElementById('video');
 
-           // Reducimos el tamaño para asegurar que Google lo acepte rápido
-           canvas.width = 320; 
-           canvas.height = 240;
-           canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
+            canvas.width = 320; 
+            canvas.height = 240;
+            canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
 
-          // Extraemos el base64 PURO (sin el encabezado data:image/jpeg...)
-           const fotoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
-           const payload = {
-           numero: document.getElementById('numero').value,
-           nombre: document.getElementById('nombre').options[document.getElementById('nombre').selectedIndex].text,
-           alergias: document.getElementById('alergias').value,
-           sangre: document.getElementById('sangre').value,
-           foto: fotoBase64 // Aquí enviamos solo el texto de la imagen
-          };
-        // ... resto del fetch ...
-
+            const fotoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+            
+            const payload = {
+                numero: num,
+                nombre: nom,
+                alergias: document.getElementById('alergias').value,
+                sangre: document.getElementById('sangre').value,
+                foto: fotoBase64
+            };
 
             try {
                 const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
