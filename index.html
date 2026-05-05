@@ -10,8 +10,19 @@
         .field-group { display: flex; align-items: center; margin-bottom: 15px; justify-content: space-between; }
         label { font-weight: bold; font-size: 0.85rem; width: 35%; text-align: left; }
         input { width: 60%; padding: 8px; border-radius: 6px; border: none; outline: none; box-sizing: border-box; }
-        #camera-box { background: #000; width: 240px; height: 240px; margin: 20px auto; border-radius: 15px; border: 3px solid #fff; overflow: hidden; }
+        
+        /* Contenedor de cámara con botón de cambio */
+        #camera-container { position: relative; width: 240px; height: 240px; margin: 20px auto; }
+        #camera-box { background: #000; width: 100%; height: 100%; border-radius: 15px; border: 3px solid #fff; overflow: hidden; }
         video { width: 100%; height: 100%; object-fit: cover; }
+        
+        .btn-switch { 
+            position: absolute; top: 10px; right: 10px; 
+            background: rgba(0,0,0,0.6); color: white; border: 1px solid white; 
+            border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-size: 1.2rem;
+            display: flex; align-items: center; justify-content: center; z-index: 10;
+        }
+
         .btn-capture { background: #00d1b2; color: white; border: none; padding: 12px 25px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1rem; }
         .btn-capture:disabled { background: #666; }
         #msg { margin-top: 15px; font-weight: bold; }
@@ -35,7 +46,13 @@
         <div class="field-group"><label>ALERGIAS:</label><input type="text" id="alergias"></div>
         <div class="field-group"><label>SANGRE:</label><input type="text" id="sangre"></div>
 
-        <div id="camera-box"><video id="video" autoplay playsinline></video></div>
+        <div id="camera-container">
+            <button class="btn-switch" onclick="switchCamera()" title="Cambiar Cámara">🔄</button>
+            <div id="camera-box">
+                <video id="video" autoplay playsinline></video>
+            </div>
+        </div>
+        
         <canvas id="canvas" style="display:none;"></canvas>
 
         <button class="btn-capture" id="btnGuardar" onclick="enviar()">GUARDAR DATOS</button>
@@ -45,6 +62,8 @@
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbzvfZ4gr1HMsMkYFGhAv4JyHfCAKpEcv6TGnh6YuSq_1XxV1v2UVuma0mbG5Lva9we06A/exec"; 
         let dbEmpleados = [];
+        let currentStream = null;
+        let useRearCamera = true; // Por defecto intentará iniciar con la trasera
 
         window.onload = () => {
             setupCam();
@@ -56,30 +75,49 @@
                 const res = await fetch(API_URL);
                 dbEmpleados = await res.json();
                 const datalist = document.getElementById('listaEmpleados');
-                datalist.innerHTML = ''; 
                 dbEmpleados.forEach(e => {
                     let opt = document.createElement('option');
-                    opt.value = e.nombre; // El valor que se muestra al buscar
+                    opt.value = e.nombre;
                     datalist.appendChild(opt);
                 });
             } catch(e) { document.getElementById('msg').innerText = "Error cargando lista."; }
         }
 
-        function setupCam() {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-            .then(s => { document.getElementById('video').srcObject = s; })
-            .catch(e => { alert("Error cámara: " + e); });
+        // Función para detener la cámara actual antes de cambiar
+        function stopMediaTracks() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        async function setupCam() {
+            stopMediaTracks();
+            const video = document.getElementById('video');
+            // 'environment' es la trasera, 'user' es la frontal (selfie)
+            const mode = useRearCamera ? "environment" : "user";
+            
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: mode } 
+                });
+                video.srcObject = currentStream;
+            } catch (e) {
+                console.error("Error al acceder a la cámara seleccionada", e);
+                // Si falla la trasera (ej. en PC), intenta con cualquier cámara disponible
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = currentStream;
+            }
+        }
+
+        function switchCamera() {
+            useRearCamera = !useRearCamera;
+            setupCam();
         }
 
         function autoFillDesdeNombre() {
             const nombreEscrito = document.getElementById('nombreInput').value;
-            // Buscamos coincidencia exacta para asignar el número
             const emp = dbEmpleados.find(x => x.nombre === nombreEscrito);
-            if (emp) {
-                document.getElementById('numero').value = emp.numero;
-            } else {
-                document.getElementById('numero').value = "";
-            }
+            document.getElementById('numero').value = emp ? emp.numero : "";
         }
 
         async function enviar() {
@@ -88,7 +126,7 @@
             const num = document.getElementById('numero').value;
             const nom = document.getElementById('nombreInput').value;
             
-            if(!num || !nom) return alert("Por favor seleccione un empleado válido de la lista");
+            if(!num || !nom) return alert("Por favor seleccione un empleado válido");
             
             btn.disabled = true;
             msg.innerText = "Procesando...";
@@ -119,7 +157,7 @@
                     setTimeout(() => location.reload(), 2000);
                 } else { throw new Error(); }
             } catch(e) {
-                msg.innerText = "Error al conectar con Google.";
+                msg.innerText = "Error al conectar.";
                 btn.disabled = false;
             }
         }
