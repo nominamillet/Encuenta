@@ -134,9 +134,9 @@
             const canvas = document.getElementById('canvas');
             const video = document.getElementById('video');
 
-            canvas.width = 240; 
-            canvas.height = 320;
-            canvas.getContext('2d').drawImage(video, 0, 0, 240, 320);
+            canvas.width = 400; 
+            canvas.height = 400;
+            canvas.getContext('2d').drawImage(video, 0, 0, 400, 400);
 
             const fotoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
             
